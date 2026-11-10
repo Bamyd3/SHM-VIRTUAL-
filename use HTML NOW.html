@@ -1,0 +1,1828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projectile Motion — Interactive Physics Lab (SS2)</title>
+<style>
+  :root{
+    --bg:#060a14; --panel:#0f1626; --panel2:#161f33;
+    --line:#243049; --line2:#33415f;
+    --text:#e8eefc; --muted:#8ea0c4;
+    --accent:#38bdf8; --vel:#34d399; --force:#fb7185;
+    --warn:#fbbf24; --success:#4ade80; --purple:#a78bfa;
+    --vx:#34d399; --vy:#38bdf8; --v:#fb923c;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body{ overflow-x:hidden; }
+  body{
+    margin:0; padding:14px;
+    font-family:"Segoe UI", system-ui, -apple-system, sans-serif;
+    color:var(--text);
+    background:
+      radial-gradient(1100px 750px at 0% -20%, #16294a 0%, transparent 60%),
+      radial-gradient(900px 600px at 100% 115%, #1e1840 0%, transparent 55%),
+      var(--bg);
+    min-height:100vh; line-height:1.45;
+  }
+
+  /* Header */
+  .hdr{
+    max-width:1300px; margin:0 auto 14px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    gap:14px; flex-wrap:wrap;
+  }
+  .hdr-l{ flex:1; min-width:260px; }
+  .hdr h1{
+    margin:0; font-size:clamp(1.2rem, 2.5vw, 1.7rem); letter-spacing:-.3px;
+    background:linear-gradient(135deg, #fff 0%, #38bdf8 100%);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .hdr p{ margin:5px 0 0; color:var(--muted); font-size:.85rem; max-width:820px; }
+  .help-toggle{
+    flex:none; padding:9px 16px; border-radius:10px;
+    border:1px solid var(--line); background:var(--panel);
+    color:var(--accent); font-size:.8rem; font-weight:700;
+    cursor:pointer; font-family:inherit; transition:.15s;
+  }
+  .help-toggle:hover{ border-color:var(--accent); background:rgba(56,189,248,.08); }
+
+  /* Help panel */
+  .help-panel{
+    max-width:1300px; margin:0 auto 14px;
+    background:linear-gradient(135deg, rgba(56,189,248,.06), rgba(167,139,250,.04));
+    border:1px solid rgba(56,189,248,.25); border-radius:14px;
+    padding:16px 18px; display:none; animation:slideDown .3s ease-out;
+  }
+  .help-panel.open{ display:block; }
+  @keyframes slideDown{ from{opacity:0;transform:translateY(-8px);} to{opacity:1;transform:translateY(0);} }
+  .help-panel h3{ margin:0 0 10px; font-size:.9rem; color:#fff; font-weight:700; }
+  .help-steps{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+  .help-step{
+    background:var(--panel); border-radius:10px; padding:10px 12px;
+    border:1px solid var(--line); display:flex; gap:10px; align-items:flex-start;
+  }
+  .help-step .num{
+    flex:none; width:24px; height:24px; border-radius:50%;
+    background:linear-gradient(180deg,#38bdf8,#0284c7);
+    color:#04202e; font-weight:800; font-size:.78rem;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .help-step div{ font-size:.8rem; color:#cfe2ff; line-height:1.45; }
+  .help-step b{ color:#fff; }
+
+  /* Tabs */
+  .tabs{ max-width:1300px; margin:0 auto 14px; display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+  @media (max-width:640px){ .tabs{ grid-template-columns:1fr; } }
+  .tab{
+    padding:11px 14px; border-radius:12px; border:1px solid var(--line);
+    background:var(--panel); color:var(--muted);
+    font-size:.85rem; font-weight:600; cursor:pointer;
+    transition:.18s; font-family:inherit; text-align:left;
+    position:relative; overflow:hidden;
+  }
+  .tab::before{
+    content:''; position:absolute; left:0; top:0; bottom:0;
+    width:3px; background:var(--accent); opacity:0; transition:.2s;
+  }
+  .tab small{ display:block; font-size:.7rem; opacity:.7; font-weight:500; margin-top:2px; }
+  .tab:hover{ border-color:var(--accent); color:var(--accent); }
+  .tab.active{
+    background:linear-gradient(135deg, #0ea5e9, #0284c7);
+    color:#04202e; border-color:transparent;
+    box-shadow:0 8px 24px -8px rgba(56,189,248,.5);
+  }
+  .tab.active::before{ opacity:1; background:#04202e; }
+  .tab.active small{ opacity:.85; }
+
+  /* Layout */
+  .stage-layout{
+    max-width:1300px; margin:0 auto;
+    display:grid; grid-template-columns:minmax(0,1fr) 370px;
+    gap:14px; align-items:start;
+  }
+  @media (max-width:960px){
+    .stage-layout{ grid-template-columns:1fr; max-width:540px; }
+    .explain, .apps, .challenges{ max-width:540px; margin-left:auto; margin-right:auto; }
+    body{ padding:10px; }
+  }
+
+  .card{
+    background:linear-gradient(180deg, var(--panel), #0a1020);
+    border:1px solid var(--line); border-radius:16px; padding:14px;
+    box-shadow:0 20px 40px -20px rgba(0,0,0,.6);
+  }
+  .card + .card{ margin-top:12px; }
+  .card h2{
+    margin:0 0 12px; font-size:.72rem; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--muted); font-weight:700;
+  }
+
+  /* Canvas */
+  .canvas-container{
+    position:relative; max-width:480px; margin:0 auto;
+    border-radius:14px; overflow:hidden; background:#050810;
+    box-shadow:inset 0 0 0 1px var(--line); touch-action:none;
+  }
+  canvas#sim{ width:100%; height:auto; aspect-ratio:1/1; display:block; }
+  .canvas-hint{
+    position:absolute; left:12px; right:12px; bottom:12px;
+    background:rgba(7,12,22,.9); backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+    border:1px solid rgba(56,189,248,.3); border-radius:10px;
+    padding:8px 12px; font-size:.76rem; color:#cfe2ff;
+    text-align:center; transition:.3s; pointer-events:none;
+  }
+  .canvas-hint.flash{
+    border-color:var(--success); color:var(--success);
+    background:rgba(74,222,128,.12);
+  }
+  @keyframes flash{ 0%{box-shadow:0 0 0 0 rgba(56,189,248,.7);} 100%{box-shadow:0 0 0 24px rgba(56,189,248,0);} }
+  .canvas-container.flash{ animation: flash .8s ease-out; }
+
+  /* Graph */
+  .graph-wrap{
+    max-width:480px; margin:12px auto 0; background:#04070d;
+    border-radius:12px; overflow:hidden;
+    box-shadow:inset 0 0 0 1px var(--line); position:relative;
+  }
+  canvas#graph{ width:100%; height:auto; aspect-ratio:8/3; display:block; }
+
+  /* Toolbar */
+  .stage-toolbar{
+    display:flex; gap:6px; justify-content:center; margin-top:10px;
+    max-width:480px; margin-left:auto; margin-right:auto;
+  }
+  .tool{
+    flex:1; padding:9px 10px; border-radius:9px;
+    border:1px solid var(--line); background:var(--panel2);
+    color:var(--muted); font-size:.78rem; font-weight:600;
+    cursor:pointer; transition:.15s; font-family:inherit;
+  }
+  .tool:hover{ border-color:var(--accent); color:var(--accent); }
+  .tool.on{ background:rgba(56,189,248,.18); border-color:var(--accent); color:var(--accent); }
+
+  /* Side panel */
+  .section-title{
+    font-size:.68rem; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:700; margin:14px 0 8px;
+    display:flex; align-items:center; gap:6px;
+  }
+  .section-title::after{
+    content:''; flex:1; height:1px;
+    background:linear-gradient(90deg, var(--line), transparent);
+  }
+  .ctrl{ margin-bottom:12px; }
+  .ctrl .row{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; font-size:.82rem; }
+  .ctrl .row span{ color:var(--muted); }
+  .ctrl .row b{
+    color:var(--accent); font-variant-numeric:tabular-nums;
+    font-size:.95rem; background:rgba(56,189,248,.1);
+    padding:1px 8px; border-radius:6px;
+  }
+
+  input[type="range"]{
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:6px; border-radius:99px;
+    background:linear-gradient(90deg, #1e2d4a, #162033); outline:none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:22px; height:22px; border-radius:50%;
+    background:linear-gradient(180deg, #38bdf8, #0284c7);
+    border:3px solid #070b15;
+    box-shadow:0 0 12px rgba(56,189,248,.6); cursor:pointer; transition:.15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover{ transform:scale(1.12); }
+  input[type="range"]::-moz-range-thumb{
+    width:18px; height:18px; border-radius:50%;
+    background:linear-gradient(180deg, #38bdf8, #0284c7);
+    border:3px solid #070b15;
+    box-shadow:0 0 12px rgba(56,189,248,.6); cursor:pointer;
+  }
+
+  /* Readouts */
+  .readouts{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .ro{
+    background:var(--panel2); border-radius:9px; padding:8px 10px;
+    border:1px solid transparent; transition:.25s;
+    position:relative; overflow:hidden;
+  }
+  .ro::before{
+    content:''; position:absolute; left:0; top:0; bottom:0;
+    width:3px; background:var(--accent); opacity:.5;
+  }
+  .ro.vel-accent::before{ background:var(--vel); }
+  .ro.force-accent::before{ background:var(--force); }
+  .ro.warn-accent::before{ background:var(--warn); }
+  .ro.vx-accent::before{ background:var(--vx); }
+  .ro.vy-accent::before{ background:var(--vy); }
+  .ro.v-accent::before{ background:var(--v); }
+  .ro span{
+    display:block; font-size:.62rem; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--muted);
+    margin-bottom:1px; font-weight:600;
+  }
+  .ro b{ font-size:1.05rem; font-variant-numeric:tabular-nums; }
+  .ro em{ font-style:normal; font-size:.7rem; color:var(--accent); margin-left:2px; }
+
+  /* Launch button */
+  .launch-btn{
+    width:100%; padding:16px; border-radius:12px; border:none;
+    background:linear-gradient(180deg, #22c55e, #16a34a);
+    color:#042; font-size:.95rem; font-weight:800;
+    letter-spacing:.4px; cursor:pointer; font-family:inherit;
+    transition:.1s; user-select:none; touch-action:none;
+    box-shadow:0 6px 20px -6px rgba(34,197,94,.6); margin-bottom:10px;
+  }
+  .launch-btn:active, .launch-btn.pressing{
+    transform:scale(.97);
+    background:linear-gradient(180deg, #16a34a, #15803d);
+    box-shadow:0 2px 8px -2px rgba(34,197,94,.4);
+  }
+
+  /* Presets */
+  .presets{ display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-bottom:12px; }
+  .preset{
+    padding:8px; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel); color:var(--muted);
+    font-size:.72rem; font-weight:600; cursor:pointer;
+    font-family:inherit; transition:.15s;
+  }
+  .preset:hover{ border-color:var(--accent); color:var(--accent); background:rgba(56,189,248,.05); }
+
+  /* Active challenge */
+  .active-challenge{
+    background:linear-gradient(135deg, rgba(56,189,248,.08), rgba(167,139,250,.06));
+    border:1px solid rgba(56,189,248,.25); border-radius:12px;
+    padding:12px 14px; margin-top:12px;
+  }
+  .active-challenge.passed{
+    border-color:var(--success);
+    background:linear-gradient(135deg, rgba(74,222,128,.15), rgba(34,197,94,.08));
+  }
+  .ac-title{
+    font-size:.66rem; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:700; margin-bottom:5px;
+  }
+  .ac-desc{ font-size:.8rem; color:#cfe2ff; margin-bottom:10px; line-height:1.4; }
+  .ac-progress{ height:8px; background:rgba(255,255,255,.06); border-radius:99px; overflow:hidden; }
+  .ac-fill{
+    height:100%; background:linear-gradient(90deg, #38bdf8, #4ade80);
+    border-radius:99px; transition:width .25s cubic-bezier(.4,0,.2,1);
+    width:0%; box-shadow:0 0 12px rgba(56,189,248,.5);
+  }
+  .ac-status{
+    font-size:.7rem; color:var(--muted); margin-top:8px;
+    font-weight:600; display:flex; align-items:center; gap:6px;
+  }
+  .ac-status.pass{ color:var(--success); }
+  .ac-status::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--muted); flex:none; }
+  .ac-status.pass::before{ background:var(--success); box-shadow:0 0 8px var(--success); }
+
+  /* Challenges grid */
+  .challenges{ max-width:1300px; margin:14px auto 0; }
+  .chal-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; }
+  .chal{
+    background:var(--panel2); border:1px solid var(--line);
+    border-radius:12px; padding:12px 14px; transition:.15s;
+    cursor:pointer; position:relative; overflow:hidden;
+  }
+  .chal:hover{ border-color:var(--accent); transform:translateY(-1px); }
+  .chal.passed{
+    border-color:var(--success);
+    background:linear-gradient(135deg, rgba(74,222,128,.1), rgba(34,197,94,.05));
+  }
+  .chal.passed::after{
+    content:'✓'; position:absolute; top:10px; right:12px;
+    color:var(--success); font-size:1.1rem; font-weight:800;
+  }
+  .chal.tracking{ border-color:var(--accent); box-shadow:0 0 0 1px rgba(56,189,248,.3); }
+  .chal h4{ margin:0 0 5px; font-size:.86rem; color:#fff; font-weight:700; padding-right:24px; }
+  .chal p{ margin:0 0 8px; font-size:.75rem; color:#b9cbe8; line-height:1.4; }
+  .chal .chal-tag{
+    display:inline-block; font-size:.6rem; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--accent); font-weight:700;
+    background:rgba(56,189,248,.12); padding:2px 7px; border-radius:5px;
+  }
+  .chal.passed .chal-tag{ color:var(--success); background:rgba(74,222,128,.15); }
+
+  /* Explanation */
+  .explain{ max-width:1300px; margin:14px auto 0; }
+  .explain .lead{ color:var(--muted); font-size:.83rem; margin:0 0 12px; max-width:900px; }
+  .eq-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px; }
+  .eq{
+    background:var(--panel2); border:1px solid var(--line);
+    border-left:3px solid var(--line2); border-radius:12px;
+    padding:14px; transition:.3s; opacity:.5;
+  }
+  .eq.active{
+    opacity:1; border-left-color:var(--warn);
+    box-shadow:0 0 0 1px rgba(251,191,36,.2), 0 8px 24px -12px rgba(251,191,36,.3);
+  }
+  .eq .eq-formula{
+    font-family:"Consolas", ui-monospace, monospace;
+    font-size:1.02rem; font-weight:700; color:#fff;
+    letter-spacing:.3px; margin-bottom:10px; text-align:center;
+    padding:8px; background:rgba(0,0,0,.2); border-radius:8px;
+  }
+  .eq .eq-formula .sym{ color:var(--accent); }
+  .eq .eq-formula .sym2{ color:var(--vel); }
+  .eq .eq-formula .sym3{ color:var(--force); }
+  .eq .tag{
+    display:inline-block; font-size:.62rem; letter-spacing:.09em;
+    text-transform:uppercase; color:#0b1020; background:var(--accent);
+    border-radius:5px; padding:2px 7px; font-weight:700; margin-bottom:8px;
+  }
+  .eq p{ margin:0 0 6px; font-size:.81rem; color:#b9cbe8; }
+  .eq .rel{ border-top:1px dashed #2e3d5e; padding-top:8px; margin-top:8px; color:#9fb3d8; font-size:.78rem; }
+  .eq .rel b{ color:var(--warn); }
+  .eq .live{
+    font-family:"Consolas", ui-monospace, monospace;
+    font-size:.75rem; color:#cfe2ff; background:#0a1020;
+    border-radius:7px; padding:8px 10px; margin-top:8px;
+    overflow-x:auto; white-space:nowrap;
+  }
+  .eq .live .num{ color:var(--vel); }
+  .eq .live .res{ color:#fff; font-weight:700; }
+
+  .note{
+    margin-top:12px; background:rgba(251,191,36,.06);
+    border:1px solid rgba(251,191,36,.24); border-radius:10px;
+    padding:10px 12px; font-size:.81rem; color:#e5d3a3;
+  }
+  .note b{ color:var(--warn); }
+
+  /* Examples */
+  .apps{ max-width:1300px; margin:14px auto 20px; }
+  .apps .lead{ color:var(--muted); font-size:.83rem; margin:0 0 14px; max-width:900px; }
+  .app-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }
+  .app{
+    background:var(--panel2); border:1px solid var(--line);
+    border-radius:14px; overflow:hidden; transition:.2s;
+    cursor:pointer; position:relative;
+  }
+  .app:hover{ border-color:var(--accent); transform:translateY(-2px); box-shadow:0 12px 30px -12px rgba(56,189,248,.4); }
+  .app-visual{
+    position:relative; width:100%; aspect-ratio:16/10;
+    background:linear-gradient(135deg, #1e2d4a, #0f1626); overflow:hidden;
+  }
+  .app-visual img{ width:100%; height:100%; object-fit:cover; display:block; transition:transform .4s; }
+  .app:hover .app-visual img{ transform:scale(1.06); }
+  .app-fallback{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:3rem; background:linear-gradient(135deg, #1e2d4a, #0f1626); z-index:1;
+  }
+  .app-visual.loaded .app-fallback{ display:none; }
+  .app-overlay{
+    position:absolute; bottom:0; left:0; right:0;
+    padding:20px 12px 10px;
+    background:linear-gradient(0deg, rgba(5,8,16,.95) 0%, rgba(5,8,16,.7) 50%, transparent 100%);
+    z-index:2;
+  }
+  .app-badge{
+    display:inline-block; font-size:.6rem; letter-spacing:.09em;
+    text-transform:uppercase; font-weight:800;
+    padding:2px 7px; border-radius:5px; margin-bottom:5px;
+  }
+  .app-badge.mode-horizontal{ background:var(--accent); color:#042; }
+  .app-badge.mode-angled{ background:var(--vel); color:#042; }
+  .app-badge.mode-height{ background:var(--purple); color:#042; }
+  .app h3{ margin:0; font-size:.92rem; color:#fff; font-weight:700; line-height:1.2; }
+  .app-body{ padding:10px 12px 12px; }
+  .app-body p{ margin:0 0 10px; font-size:.76rem; color:#b9cbe8; line-height:1.4; }
+  .app-body button{
+    width:100%; padding:9px; font-size:.78rem;
+    background:var(--panel); border:1px solid var(--line);
+    color:var(--text); border-radius:8px; cursor:pointer;
+    font-family:inherit; font-weight:600; transition:.15s;
+  }
+  .app-body button:hover{ background:rgba(56,189,248,.1); color:var(--accent); border-color:var(--accent); }
+  .app-body button.just-loaded{ background:rgba(56,189,248,.2); border-color:var(--accent); color:var(--accent); }
+
+  /* Toast */
+  .toast{
+    position:fixed; left:50%; bottom:24px;
+    transform:translateX(-50%) translateY(140%);
+    background:linear-gradient(180deg,#0ea5e9,#0284c7); color:#04202e;
+    padding:12px 20px; border-radius:12px; font-weight:700; font-size:.86rem;
+    box-shadow:0 12px 32px rgba(56,189,248,.5);
+    transition:transform .32s cubic-bezier(.2,1.2,.4,1);
+    z-index:1000; max-width:calc(100vw - 32px);
+    text-align:center; pointer-events:none;
+  }
+  .toast.show{ transform:translateX(-50%) translateY(0); }
+  .toast.success{ background:linear-gradient(180deg,#22c55e,#16a34a); color:#042; }
+
+  /* Modal */
+  .modal{ position:fixed; inset:0; z-index:1100; display:none; align-items:center; justify-content:center; padding:16px; }
+  .modal.open{ display:flex; }
+  .modal-backdrop{
+    position:absolute; inset:0; background:rgba(3,6,14,.85);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    animation:fadeIn .22s;
+  }
+  @keyframes fadeIn{ from{opacity:0} to{opacity:1} }
+  @keyframes popIn{ from{opacity:0;transform:translateY(20px) scale(.94);} to{opacity:1;transform:translateY(0) scale(1);} }
+  .modal-card{
+    position:relative;
+    background:linear-gradient(180deg, var(--panel), #0a1020);
+    border:1px solid var(--line); border-radius:16px;
+    width:100%; max-width:440px; max-height:calc(100vh - 32px);
+    overflow-y:auto;
+    box-shadow:0 24px 60px rgba(0,0,0,.7), 0 0 0 1px rgba(56,189,248,.15);
+    animation:popIn .3s cubic-bezier(.2,1.2,.4,1);
+  }
+  .modal-hero{
+    position:relative; width:100%; aspect-ratio:16/9;
+    background:linear-gradient(135deg, #1e2d4a, #0f1626);
+    overflow:hidden; border-radius:16px 16px 0 0;
+  }
+  .modal-hero img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .modal-hero .hero-fallback{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:3.5rem; background:linear-gradient(135deg, #1e2d4a, #0f1626);
+  }
+  .modal-hero.loaded .hero-fallback{ display:none; }
+  .modal-hero::after{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(0deg, rgba(10,16,32,.95) 0%, transparent 60%);
+    pointer-events:none;
+  }
+  .modal-content{ padding:20px; }
+  .modal-close{
+    position:absolute; top:12px; right:12px;
+    width:36px; height:36px; padding:0; border-radius:50%;
+    border:1px solid rgba(255,255,255,.2);
+    background:rgba(0,0,0,.5);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    color:#fff; font-size:20px; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; z-index:3;
+  }
+  .modal-close:hover{ background:rgba(0,0,0,.8); }
+  .modal-sub{
+    margin:0 0 6px; font-size:.72rem; color:var(--accent);
+    font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  }
+  .modal-content h3{ margin:0 0 10px; font-size:1.15rem; color:#fff; font-weight:700; }
+  .modal-intro{ margin:0 0 16px; font-size:.85rem; color:#b9cbe8; line-height:1.5; }
+  .modal-block{ margin-bottom:14px; }
+  .modal-block h4{
+    margin:0 0 8px; font-size:.64rem; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); font-weight:700;
+  }
+  .modal-values{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .modal-values > div{
+    background:var(--panel2); border-radius:8px; padding:8px 10px;
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:.78rem; gap:6px;
+  }
+  .modal-values span{ color:var(--muted); }
+  .modal-values b{ color:var(--accent); font-variant-numeric:tabular-nums; }
+  .modal-observe{ margin:0; padding-left:18px; font-size:.81rem; color:#b9cbe8; }
+  .modal-observe li{ margin-bottom:6px; line-height:1.45; }
+  .modal-observe li::marker{ color:var(--accent); }
+  .modal-tip{
+    background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.28);
+    border-radius:10px; padding:10px 12px; font-size:.8rem; color:#e5d3a3;
+    margin-bottom:16px; line-height:1.5;
+  }
+  .modal-tip b{ color:var(--warn); }
+  .modal-done{
+    width:100%; padding:12px;
+    background:linear-gradient(180deg,#0ea5e9,#0284c7);
+    border:none; color:#04202e; font-weight:700; font-size:.88rem;
+    border-radius:10px; cursor:pointer; font-family:inherit;
+  }
+  .modal-done:hover{ filter:brightness(1.08); }
+
+  /* Footer */
+  .site-footer{
+    max-width:1300px; margin:18px auto 8px;
+    padding:16px 14px 10px; border-top:1px solid var(--line);
+    text-align:center; color:var(--muted); font-size:.8rem; line-height:1.65;
+  }
+  .site-footer .credit{ color:#cfe2ff; font-weight:600; margin:0 0 4px; }
+  .site-footer .credit strong{ color:var(--accent); font-weight:700; }
+  .site-footer .contact{ margin:2px 0 0; }
+  .site-footer a{ color:var(--vel); text-decoration:none; font-weight:600; }
+  .site-footer a:hover{ text-decoration:underline; }
+  .site-footer .sep{ color:#2e3d5e; margin:0 8px; }
+  .site-footer .small{ display:block; margin-top:6px; font-size:.7rem; color:#5d6f92; }
+  @media (max-width:940px){ .site-footer{ max-width:540px; } }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-l">
+    <h1>Projectile Motion — Interactive Physics Lab</h1>
+    <p>
+      Launch a projectile · watch the trajectory · read the vectors live · test your aim with challenges —
+      all built around the curved path every thrown ball, fired shell, or jumping diver follows.
+    </p>
+  </div>
+  <button class="help-toggle" id="helpBtn">? How to use</button>
+</header>
+
+<div class="help-panel" id="helpPanel">
+  <h3>How to use this lab</h3>
+  <div class="help-steps">
+    <div class="help-step"><span class="num">1</span><div><b>Pick a mode</b> — horizontal throw, angled launch from ground, or launch from a height.</div></div>
+    <div class="help-step"><span class="num">2</span><div><b>Adjust the sliders</b> — launch speed, angle, height, gravity. The dashed path updates instantly.</div></div>
+    <div class="help-step"><span class="num">3</span><div><b>Press LAUNCH</b> — the projectile flies along the path. Green is horizontal velocity, blue is vertical, orange is total speed.</div></div>
+    <div class="help-step"><span class="num">4</span><div><b>Read the graph</b> — v<sub>x</sub> stays flat, v<sub>y</sub> falls steadily (gravity!), and |v| traces its own curve.</div></div>
+    <div class="help-step"><span class="num">5</span><div><b>Try the challenges</b> — click a card to track it. Meet the goal to pass.</div></div>
+  </div>
+</div>
+
+<nav class="tabs">
+  <button class="tab active" data-mode="horizontal">Horizontal throw<small>Fired horizontally from a height</small></button>
+  <button class="tab" data-mode="angled">Angled launch<small>Fired at angle θ from the ground</small></button>
+  <button class="tab" data-mode="height">From a height<small>Fired at angle θ from a cliff or platform</small></button>
+</nav>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- MODAL -->
+<div id="exampleModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card" role="document">
+    <div class="modal-hero" id="mHero">
+      <div class="hero-fallback" id="mHeroFallback">🏀</div>
+      <img id="mHeroImg" alt="">
+      <button class="modal-close" data-close aria-label="Close">×</button>
+    </div>
+    <div class="modal-content">
+      <p class="modal-sub" id="mSub">Mode</p>
+      <h3 id="mTitle">Example</h3>
+      <p class="modal-intro" id="mIntro"></p>
+      <div class="modal-block"><h4>Loaded values</h4><div class="modal-values" id="mValues"></div></div>
+      <div class="modal-block"><h4>What to notice</h4><ul class="modal-observe" id="mObserve"></ul></div>
+      <div class="modal-tip" id="mTip"></div>
+      <button class="modal-done" data-close>Show me the simulator →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN STAGE -->
+<div class="stage-layout">
+
+  <section class="card">
+    <div class="canvas-container" id="canvasWrap">
+      <canvas id="sim" width="640" height="640"></canvas>
+      <div class="canvas-hint" id="hint">Adjust the sliders, then press LAUNCH</div>
+    </div>
+    <div class="graph-wrap"><canvas id="graph" width="640" height="240"></canvas></div>
+    <div class="stage-toolbar">
+      <button class="tool" id="slowBtn">🐢 Slow-mo</button>
+      <button class="tool" id="pauseBtn">⏸ Pause</button>
+      <button class="tool" id="resetBtn">↺ Reset</button>
+    </div>
+  </section>
+
+  <aside>
+    <!-- HORIZONTAL -->
+    <div class="card panel active" id="panel-horizontal">
+      <h2>Horizontal throw</h2>
+      <div class="section-title">Parameters</div>
+      <div class="ctrl"><div class="row"><span>Horizontal speed u</span><b id="uHVal">15.0 m/s</b></div><input id="uH" type="range" min="1" max="40" step="0.5" value="15"></div>
+      <div class="ctrl"><div class="row"><span>Launch height h</span><b id="hHVal">30.0 m</b></div><input id="hH" type="range" min="1" max="100" step="1" value="30"></div>
+      <div class="ctrl"><div class="row"><span>Gravity g</span><b id="gHVal">9.8 m/s²</b></div><input id="gH" type="range" min="1.6" max="25" step="0.1" value="9.8"></div>
+      <div class="section-title">Presets</div>
+      <div class="presets">
+        <button class="preset" data-preset="h-tabletop">📏 Tabletop</button>
+        <button class="preset" data-preset="h-cliff">🏔 Cliff</button>
+        <button class="preset" data-preset="h-moon">🌙 Moon</button>
+      </div>
+      <div class="section-title">Actions</div>
+      <button class="launch-btn" id="launchH">🚀 LAUNCH</button>
+      <div class="section-title">Live values</div>
+      <div class="readouts">
+        <div class="ro vx-accent"><span>Horizontal velocity</span><b id="h-vx">15.0</b><em>m/s</em></div>
+        <div class="ro vy-accent"><span>Vertical velocity</span><b id="h-vy">0.0</b><em>m/s</em></div>
+        <div class="ro v-accent"><span>Speed |v|</span><b id="h-v">15.0</b><em>m/s</em></div>
+        <div class="ro warn-accent"><span>Time</span><b id="h-t">0.00</b><em>s</em></div>
+        <div class="ro"><span>Height</span><b id="h-y">30.0</b><em>m</em></div>
+        <div class="ro"><span>Distance</span><b id="h-x">0.0</b><em>m</em></div>
+      </div>
+      <div class="active-challenge" id="ac-h">
+        <div class="ac-title">Active challenge</div>
+        <div class="ac-desc" id="ac-h-desc">Tap a challenge below to start tracking it.</div>
+        <div class="ac-progress"><div class="ac-fill" id="ac-h-fill"></div></div>
+        <div class="ac-status" id="ac-h-status">Not tracking</div>
+      </div>
+    </div>
+
+    <!-- ANGLED -->
+    <div class="card panel" id="panel-angled">
+      <h2>Angled launch</h2>
+      <div class="section-title">Parameters</div>
+      <div class="ctrl"><div class="row"><span>Launch speed u</span><b id="uAVal">25.0 m/s</b></div><input id="uA" type="range" min="1" max="80" step="0.5" value="25"></div>
+      <div class="ctrl"><div class="row"><span>Angle θ</span><b id="angAVal">45°</b></div><input id="angA" type="range" min="5" max="85" step="1" value="45"></div>
+      <div class="ctrl"><div class="row"><span>Gravity g</span><b id="gAVal">9.8 m/s²</b></div><input id="gA" type="range" min="1.6" max="25" step="0.1" value="9.8"></div>
+      <div class="section-title">Presets</div>
+      <div class="presets">
+        <button class="preset" data-preset="a-soccer">⚽ Soccer</button>
+        <button class="preset" data-preset="a-cannon">💥 Cannon</button>
+        <button class="preset" data-preset="a-basket">🏀 Basket</button>
+      </div>
+      <div class="section-title">Actions</div>
+      <button class="launch-btn" id="launchA">🚀 LAUNCH</button>
+      <div class="section-title">Live values</div>
+      <div class="readouts">
+        <div class="ro vx-accent"><span>Horizontal velocity</span><b id="a-vx">17.7</b><em>m/s</em></div>
+        <div class="ro vy-accent"><span>Vertical velocity</span><b id="a-vy">17.7</b><em>m/s</em></div>
+        <div class="ro v-accent"><span>Speed |v|</span><b id="a-v">25.0</b><em>m/s</em></div>
+        <div class="ro warn-accent"><span>Time</span><b id="a-t">0.00</b><em>s</em></div>
+        <div class="ro"><span>Range</span><b id="a-range">63.8</b><em>m</em></div>
+        <div class="ro"><span>Max height</span><b id="a-hmax">15.9</b><em>m</em></div>
+      </div>
+      <div class="active-challenge" id="ac-a">
+        <div class="ac-title">Active challenge</div>
+        <div class="ac-desc" id="ac-a-desc">Tap a challenge below to start tracking it.</div>
+        <div class="ac-progress"><div class="ac-fill" id="ac-a-fill"></div></div>
+        <div class="ac-status" id="ac-a-status">Not tracking</div>
+      </div>
+    </div>
+
+    <!-- HEIGHT -->
+    <div class="card panel" id="panel-height">
+      <h2>Launch from height</h2>
+      <div class="section-title">Parameters</div>
+      <div class="ctrl"><div class="row"><span>Launch speed u</span><b id="uXVal">20.0 m/s</b></div><input id="uX" type="range" min="1" max="80" step="0.5" value="20"></div>
+      <div class="ctrl"><div class="row"><span>Angle θ</span><b id="angXVal">30°</b></div><input id="angX" type="range" min="0" max="85" step="1" value="30"></div>
+      <div class="ctrl"><div class="row"><span>Launch height h</span><b id="hXVal">15.0 m</b></div><input id="hX" type="range" min="1" max="80" step="1" value="15"></div>
+      <div class="ctrl"><div class="row"><span>Gravity g</span><b id="gXVal">9.8 m/s²</b></div><input id="gX" type="range" min="1.6" max="25" step="0.1" value="9.8"></div>
+      <div class="section-title">Presets</div>
+      <div class="presets">
+        <button class="preset" data-preset="x-fireworks">🎆 Fireworks</button>
+        <button class="preset" data-preset="x-archery">🏹 Archery</button>
+        <button class="preset" data-preset="x-rocket">🚀 Rocket</button>
+      </div>
+      <div class="section-title">Actions</div>
+      <button class="launch-btn" id="launchX">🚀 LAUNCH</button>
+      <div class="section-title">Live values</div>
+      <div class="readouts">
+        <div class="ro vx-accent"><span>Horizontal velocity</span><b id="x-vx">17.3</b><em>m/s</em></div>
+        <div class="ro vy-accent"><span>Vertical velocity</span><b id="x-vy">10.0</b><em>m/s</em></div>
+        <div class="ro v-accent"><span>Speed |v|</span><b id="x-v">20.0</b><em>m/s</em></div>
+        <div class="ro warn-accent"><span>Time</span><b id="x-t">0.00</b><em>s</em></div>
+        <div class="ro"><span>Range</span><b id="x-range">0.0</b><em>m</em></div>
+        <div class="ro"><span>Max height</span><b id="x-hmax">0.0</b><em>m</em></div>
+      </div>
+      <div class="active-challenge" id="ac-x">
+        <div class="ac-title">Active challenge</div>
+        <div class="ac-desc" id="ac-x-desc">Tap a challenge below to start tracking it.</div>
+        <div class="ac-progress"><div class="ac-fill" id="ac-x-fill"></div></div>
+        <div class="ac-status" id="ac-x-status">Not tracking</div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- CHALLENGES -->
+<section class="challenges">
+  <div class="card">
+    <h2>🎯 Challenges — click a card to track it</h2>
+    <div class="chal-grid" id="chalGrid"></div>
+  </div>
+</section>
+
+<!-- EXPLANATIONS -->
+<section class="explain">
+  <div class="card">
+    <h2>The physics — live formulas</h2>
+    <p class="lead">The card matching your current mode is highlighted. Values update in real time as you adjust sliders.</p>
+    <div class="eq-grid">
+      <div class="eq" id="eq-horizontal">
+        <span class="tag">Horizontal throw</span>
+        <div class="eq-formula"><span class="sym">x</span> = u·t &nbsp;·&nbsp; <span class="sym2">y</span> = h − ½g·t²</div>
+        <p><b>Fired horizontally, the object accelerates only downward.</b> Horizontal velocity stays constant — only gravity changes the vertical part.</p>
+        <p class="rel"><b>Key idea:</b> t<sub>fall</sub> = √(2h/g), Range = u·t<sub>fall</sub> — the fall time is set by <b>h</b> alone.</p>
+        <div class="live" id="eqH"></div>
+      </div>
+      <div class="eq" id="eq-angled">
+        <span class="tag">Angled launch</span>
+        <div class="eq-formula"><span class="sym">R</span> = u²·sin(2θ)/g</div>
+        <p><b>Range is maximised at θ = 45°</b>, since sin(2θ) is largest there (sin 90° = 1).</p>
+        <p class="rel"><b>Key idea:</b> Range ∝ u² and varies with sin(2θ). Angles θ and (90°−θ) give the <b>same range</b>.</p>
+        <div class="live" id="eqA"></div>
+      </div>
+      <div class="eq" id="eq-height">
+        <span class="tag">From a height</span>
+        <div class="eq-formula"><span class="sym">t</span> = (v<sub>y0</sub> + √(v<sub>y0</sub>² + 2gh))/g</div>
+        <p><b>Launching from a height gives extra fall time</b>, so the projectile travels further than the same shot from the ground.</p>
+        <p class="rel"><b>Key idea:</b> Throw from a cliff and you get <b>extra range</b> for free — the ground is now further below you.</p>
+        <div class="live" id="eqX"></div>
+      </div>
+    </div>
+    <div class="note"><b>Watch out:</b> Air resistance is ignored in this simulation. In real life, air drag slows the projectile and shortens the range.</div>
+  </div>
+</section>
+
+<!-- EXAMPLES -->
+<section class="apps">
+  <div class="card">
+    <h2>🌍 Real-life examples — click to load</h2>
+    <p class="lead">Each card uses a real photograph and loads a matching projectile scenario.</p>
+    <div class="app-grid" id="appGrid"></div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <p class="credit">App designed by <strong>Bamidele Sunday</strong> — Lead Innovator, Complete Solutions Educational Services</p>
+  <p class="contact">
+    <a href="tel:08060180586">📞 08060180586</a>
+    <span class="sep">·</span>
+    <a href="mailto:bamideles@gmail.com">✉️ bamideles@gmail.com</a>
+  </p>
+  <span class="small">© Complete Solutions Educational Services · All rights reserved</span>
+</footer>
+
+<script>
+/* =========================================================
+   0. CANVAS SETUP
+   ========================================================= */
+const TAU = Math.PI * 2;
+const SIZE = 640;
+const $ = id => document.getElementById(id);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+const cv = $('sim');
+const ctx = cv.getContext('2d');
+const gcv = $('graph');
+const gctx = gcv.getContext('2d');
+
+function fitCanvas(canvas, w, h){
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+fitCanvas(cv, SIZE, SIZE);
+fitCanvas(gcv, 640, 240);
+window.addEventListener('resize', () => {
+  fitCanvas(cv, SIZE, SIZE);
+  fitCanvas(gcv, 640, 240);
+});
+
+/* =========================================================
+   1. AUDIO
+   ========================================================= */
+let _audio = null;
+function getAudio(){
+  if (!_audio){
+    try { _audio = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ return null; }
+  }
+  try { if (_audio.state === 'suspended') _audio.resume().catch(() => {}); }
+  catch(e){}
+  return _audio;
+}
+function beep(freq, dur, vol = 0.05, type = 'sine'){
+  const a = getAudio();
+  if (!a) return;
+  try {
+    const osc = a.createOscillator();
+    const gain = a.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, a.currentTime);
+    gain.gain.linearRampToValueAtTime(vol, a.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(a.destination);
+    osc.start();
+    osc.stop(a.currentTime + dur);
+  } catch(e){}
+}
+function successSound(){
+  beep(523, 0.12, 0.06);
+  setTimeout(() => beep(659, 0.12, 0.06), 110);
+  setTimeout(() => beep(784, 0.2, 0.06), 220);
+}
+
+/* =========================================================
+   2. STATE
+   ========================================================= */
+const S = {
+  mode: 'horizontal',
+  params: {
+    horizontal: { u: 15, h: 30, g: 9.8 },
+    angled:     { u: 25, angle: 45, g: 9.8 },
+    height:     { u: 20, angle: 30, h: 15, g: 9.8 }
+  },
+  result: null,
+  animT: 0,
+  launched: false,
+  paused: false,
+  slowmo: false,
+  particles: [],
+  activeChallenge: { horizontal: null, angled: null, height: null },
+  passedChallenges: new Set()
+};
+
+/* =========================================================
+   3. PHYSICS
+   ========================================================= */
+function solve(mode, params){
+  const { u, angle, h, g } = params;
+  let vx0, vy0, h0;
+
+  if (mode === 'horizontal'){
+    vx0 = u; vy0 = 0; h0 = h;
+  } else if (mode === 'angled'){
+    const rad = angle * Math.PI / 180;
+    vx0 = u * Math.cos(rad);
+    vy0 = u * Math.sin(rad);
+    h0 = 0;
+  } else {
+    const rad = angle * Math.PI / 180;
+    vx0 = u * Math.cos(rad);
+    vy0 = u * Math.sin(rad);
+    h0 = h;
+  }
+
+  const disc = vy0 * vy0 + 2 * g * h0;
+  const t_flight = (vy0 + Math.sqrt(disc)) / g;
+  const peakTime = vy0 > 0 ? vy0 / g : 0;
+  const maxHeight = h0 + (vy0 > 0 ? vy0 * vy0 / (2 * g) : 0);
+  const range = vx0 * t_flight;
+  const vImpact = Math.sqrt(vx0 * vx0 + Math.pow(g * t_flight - vy0, 2));
+
+  function position(t){
+    return {
+      x: vx0 * t,
+      y: h0 + vy0 * t - 0.5 * g * t * t,
+      vx: vx0,
+      vy: vy0 - g * t
+    };
+  }
+  return { t_flight, maxHeight, range, peakTime, vx0, vy0, h0, vImpact, position };
+}
+
+function recompute(){
+  S.result = solve(S.mode, S.params[S.mode]);
+  S.animT = 0;
+  S.launched = false;
+}
+
+/* =========================================================
+   4. DRAW HELPERS
+   ========================================================= */
+function clearBg(){
+  ctx.clearRect(0, 0, SIZE, SIZE);
+  const g = ctx.createLinearGradient(0, 0, 0, SIZE);
+  g.addColorStop(0, '#050810');
+  g.addColorStop(1, '#0a1224');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, SIZE, SIZE);
+  ctx.strokeStyle = 'rgba(56,189,248,.03)';
+  ctx.lineWidth = 1;
+  for (let x = 40; x < SIZE; x += 40){
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, SIZE); ctx.stroke();
+  }
+  for (let y = 40; y < SIZE; y += 40){
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(SIZE, y); ctx.stroke();
+  }
+}
+
+function drawArrow(x1, y1, x2, y2, colour, width){
+  const ang = Math.atan2(y2 - y1, x2 - x1);
+  const head = 11;
+  ctx.save();
+  ctx.strokeStyle = colour;
+  ctx.fillStyle = colour;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2 - Math.cos(ang) * head * 0.75, y2 - Math.sin(ang) * head * 0.75);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - Math.cos(ang - 0.42) * head, y2 - Math.sin(ang - 0.42) * head);
+  ctx.lineTo(x2 - Math.cos(ang + 0.42) * head, y2 - Math.sin(ang + 0.42) * head);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawLabel(text, x, y, colour){
+  ctx.save();
+  ctx.font = 'bold 13px "Segoe UI", sans-serif';
+  ctx.fillStyle = 'rgba(5,8,16,.92)';
+  ctx.beginPath(); ctx.arc(x, y, 11, 0, TAU); ctx.fill();
+  ctx.fillStyle = colour;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+function spawnParticles(x, y, count, colour){
+  for (let i = 0; i < count; i++){
+    const angle = Math.random() * TAU;
+    const speed = 40 + Math.random() * 120;
+    S.particles.push({
+      x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      life: 1, colour, size: 2 + Math.random() * 3
+    });
+  }
+}
+function updateParticles(dt){
+  for (let i = S.particles.length - 1; i >= 0; i--){
+    const p = S.particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 150 * dt;
+    p.life -= dt * 1.3;
+    if (p.life <= 0) S.particles.splice(i, 1);
+  }
+}
+function drawParticles(){
+  for (const p of S.particles){
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.colour;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, TAU);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* =========================================================
+   5. MAIN DRAW
+   ========================================================= */
+function draw(){
+  clearBg();
+  const res = S.result;
+  if (!res) return;
+
+  const pad = 55;
+  const worldW = Math.max(res.range, 1);
+  const worldH = Math.max(res.maxHeight, res.h0, 5);
+  const scale = Math.min((SIZE - 2 * pad) / worldW, (SIZE - 2 * pad) / worldH);
+
+  const w2sx = x => pad + x * scale;
+  const w2sy = y => SIZE - pad - y * scale;
+
+  const groundY = w2sy(0);
+
+  // ground
+  ctx.strokeStyle = 'rgba(120,160,220,.5)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(20, groundY); ctx.lineTo(SIZE - 20, groundY);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(120,160,220,.15)';
+  ctx.lineWidth = 1;
+  for (let x = 30; x < SIZE - 20; x += 16){
+    ctx.beginPath();
+    ctx.moveTo(x, groundY);
+    ctx.lineTo(x - 8, groundY + 10);
+    ctx.stroke();
+  }
+
+  // platform
+  if (S.mode === 'horizontal' || S.mode === 'height'){
+    const px = w2sx(0);
+    const py = w2sy(res.h0);
+    ctx.strokeStyle = 'rgba(148,163,184,.7)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(30, py); ctx.lineTo(px, py); ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, groundY); ctx.stroke();
+    ctx.strokeStyle = 'rgba(148,163,184,.25)';
+    ctx.lineWidth = 1;
+    for (let y = py + 6; y < groundY; y += 10){
+      ctx.beginPath();
+      ctx.moveTo(30, y); ctx.lineTo(px, y);
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(142,160,196,.9)';
+    ctx.font = 'bold 12px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('h = ' + res.h0.toFixed(1) + ' m', (30 + px) / 2, (py + groundY) / 2);
+  }
+
+  // analytic trajectory dots
+  ctx.save();
+  ctx.fillStyle = 'rgba(56,189,248,.15)';
+  for (let i = 0; i <= 80; i++){
+    const t = (i / 80) * res.t_flight;
+    const pos = res.position(t);
+    ctx.beginPath();
+    ctx.arc(w2sx(pos.x), w2sy(pos.y), 2, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // traveled trail
+  if (S.animT > 0){
+    ctx.strokeStyle = 'rgba(52,211,153,.7)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    const steps = 60;
+    for (let i = 0; i <= steps; i++){
+      const t = (i / steps) * Math.min(S.animT, res.t_flight);
+      const pos = res.position(t);
+      const sx = w2sx(pos.x);
+      const sy = w2sy(pos.y);
+      if (i === 0) ctx.moveTo(sx, sy);
+      else ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
+  }
+
+  // current position
+  const curT = Math.min(S.animT, res.t_flight);
+  const pos = res.position(curT);
+  const px = w2sx(pos.x);
+  const py = w2sy(pos.y);
+
+  ctx.save();
+  ctx.shadowColor = '#38bdf8';
+  ctx.shadowBlur = 20;
+  const grad = ctx.createRadialGradient(px - 4, py - 4, 2, px, py, 14);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(1, '#38bdf8');
+  ctx.beginPath();
+  ctx.arc(px, py, 13, 0, TAU);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.restore();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255,255,255,.9)';
+  ctx.stroke();
+
+  // velocity vectors
+  if (S.launched && curT > 0.01){
+    const vScale = 4;
+    if (Math.abs(pos.vx) > 0.1){
+      const ex = px + pos.vx * vScale;
+      drawArrow(px, py, ex, py, '#34d399', 3);
+      drawLabel('vx', ex + 14, py, '#34d399');
+    }
+    if (Math.abs(pos.vy) > 0.1){
+      const ey = py - pos.vy * vScale;
+      drawArrow(px, py, px, ey, '#38bdf8', 3);
+      drawLabel('vy', px, ey - 14, '#38bdf8');
+    }
+    const vMag = Math.sqrt(pos.vx * pos.vx + pos.vy * pos.vy);
+    if (vMag > 0.1){
+      const ex = px + pos.vx * vScale;
+      const ey = py - pos.vy * vScale;
+      drawArrow(px, py, ex, ey, '#fb923c', 3.5);
+      drawLabel('v', ex + 12, ey - 12, '#fb923c');
+    }
+  }
+
+  // info
+  ctx.fillStyle = 'rgba(142,160,196,.85)';
+  ctx.font = 'bold 14px "Segoe UI", sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('t = ' + curT.toFixed(2) + ' s', 20, 20);
+  ctx.textAlign = 'right';
+  ctx.fillText('y = ' + pos.y.toFixed(1) + ' m', SIZE - 20, 20);
+
+  drawParticles();
+}
+
+/* =========================================================
+   6. GRAPH
+   ========================================================= */
+function drawGraph(){
+  const W = 640, H = 240;
+  const PAD_L = 42, PAD_R = 20, PAD_T = 22, PAD_B = 30;
+  const PLOT_W = W - PAD_L - PAD_R;
+  const PLOT_H = H - PAD_T - PAD_B;
+
+  gctx.clearRect(0, 0, W, H);
+  gctx.fillStyle = '#04070d';
+  gctx.fillRect(0, 0, W, H);
+
+  const res = S.result;
+  if (!res || res.t_flight <= 0) return;
+
+  const N = 80;
+  const samples = [];
+  let vMin = 0, vMax = 0;
+  for (let i = 0; i <= N; i++){
+    const t = (i / N) * res.t_flight;
+    const p = res.position(t);
+    const v = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+    samples.push({ t, vx: p.vx, vy: p.vy, v });
+    vMin = Math.min(vMin, p.vy, 0);
+    vMax = Math.max(vMax, p.vy, v, p.vx, 1);
+  }
+  vMin = Math.floor(vMin / 10) * 10;
+  vMax = Math.ceil(vMax / 10) * 10;
+  const vRange = vMax - vMin;
+
+  const tickCount = 4;
+  const tickStep = vRange / tickCount;
+  gctx.font = '10px "Segoe UI", sans-serif';
+  gctx.textAlign = 'right'; gctx.textBaseline = 'middle';
+  for (let i = 0; i <= tickCount; i++){
+    const val = vMin + i * tickStep;
+    const y = PAD_T + PLOT_H * (1 - (val - vMin) / vRange);
+    gctx.strokeStyle = Math.abs(val) < 0.1 ? 'rgba(142,160,196,.4)' : 'rgba(56,189,248,.08)';
+    gctx.lineWidth = Math.abs(val) < 0.1 ? 1.5 : 1;
+    gctx.beginPath(); gctx.moveTo(PAD_L, y); gctx.lineTo(W - PAD_R, y); gctx.stroke();
+    gctx.fillStyle = 'rgba(142,160,196,.6)';
+    gctx.fillText(val.toFixed(0), PAD_L - 6, y);
+  }
+
+  gctx.textAlign = 'center'; gctx.textBaseline = 'top';
+  const tTicks = 5;
+  for (let i = 0; i <= tTicks; i++){
+    const val = (i / tTicks) * res.t_flight;
+    const x = PAD_L + PLOT_W * (i / tTicks);
+    gctx.strokeStyle = 'rgba(56,189,248,.06)';
+    gctx.lineWidth = 1;
+    gctx.beginPath(); gctx.moveTo(x, PAD_T); gctx.lineTo(x, PAD_T + PLOT_H); gctx.stroke();
+    gctx.fillStyle = 'rgba(142,160,196,.55)';
+    gctx.fillText(val.toFixed(1) + 's', x, H - PAD_B + 8);
+  }
+
+  gctx.fillStyle = 'rgba(56,189,248,.7)';
+  gctx.font = 'bold 10px "Segoe UI", sans-serif';
+  gctx.textAlign = 'right'; gctx.textBaseline = 'top';
+  gctx.fillText('v (m/s)', PAD_L - 6, 4);
+
+  const mapT = t => PAD_L + PLOT_W * (t / res.t_flight);
+  const mapV = v => PAD_T + PLOT_H * (1 - (v - vMin) / vRange);
+
+  function drawLine(key, colour, width){
+    gctx.beginPath();
+    samples.forEach((s, i) => {
+      const x = mapT(s.t);
+      const y = mapV(s[key]);
+      if (i === 0) gctx.moveTo(x, y);
+      else gctx.lineTo(x, y);
+    });
+    gctx.strokeStyle = colour;
+    gctx.lineWidth = width;
+    gctx.lineJoin = 'round';
+    gctx.lineCap = 'round';
+    gctx.stroke();
+  }
+
+  drawLine('vx', '#34d399', 2.5);
+  drawLine('vy', '#38bdf8', 2.5);
+  drawLine('v',  '#fb923c', 2);
+
+  if (S.launched && S.animT > 0){
+    const tNow = Math.min(S.animT, res.t_flight);
+    const xNow = mapT(tNow);
+    gctx.strokeStyle = 'rgba(255,255,255,.4)';
+    gctx.setLineDash([4, 4]);
+    gctx.lineWidth = 1;
+    gctx.beginPath(); gctx.moveTo(xNow, PAD_T); gctx.lineTo(xNow, PAD_T + PLOT_H); gctx.stroke();
+    gctx.setLineDash([]);
+
+    const curPos = res.position(tNow);
+    const vCur = Math.sqrt(curPos.vx * curPos.vx + curPos.vy * curPos.vy);
+    [{ val: curPos.vx, colour: '#34d399' }, { val: curPos.vy, colour: '#38bdf8' }, { val: vCur, colour: '#fb923c' }].forEach(p => {
+      gctx.beginPath();
+      gctx.arc(xNow, mapV(p.val), 4, 0, TAU);
+      gctx.fillStyle = p.colour;
+      gctx.fill();
+      gctx.strokeStyle = '#04070d';
+      gctx.lineWidth = 1.5;
+      gctx.stroke();
+    });
+  }
+
+  gctx.strokeStyle = 'rgba(56,189,248,.15)';
+  gctx.lineWidth = 1;
+  gctx.strokeRect(PAD_L, PAD_T, PLOT_W, PLOT_H);
+
+  gctx.font = 'bold 10px "Segoe UI", sans-serif';
+  gctx.textAlign = 'right'; gctx.textBaseline = 'top';
+  gctx.fillStyle = '#fb923c'; gctx.fillText('|v|', W - PAD_R - 6, 4);
+  gctx.fillStyle = '#38bdf8'; gctx.fillText('vy', W - PAD_R - 36, 4);
+  gctx.fillStyle = '#34d399'; gctx.fillText('vx', W - PAD_R - 66, 4);
+}
+
+/* =========================================================
+   7. UI UPDATE
+   ========================================================= */
+function updateUI(){
+  const res = S.result;
+  if (!res) return;
+  const curT = Math.min(S.animT, res.t_flight);
+  const pos = res.position(curT);
+  const vMag = Math.sqrt(pos.vx * pos.vx + pos.vy * pos.vy);
+
+  if (S.mode === 'horizontal'){
+    setText('h-vx', Math.abs(pos.vx).toFixed(1));
+    setText('h-vy', Math.abs(pos.vy).toFixed(1));
+    setText('h-v',  vMag.toFixed(1));
+    setText('h-t',  curT.toFixed(2));
+    setText('h-y',  Math.max(0, pos.y).toFixed(1));
+    setText('h-x',  pos.x.toFixed(1));
+    setHTML('eqH', 't<sub>fall</sub> = <span class="num">' + res.t_flight.toFixed(2) + '</span> s · Range = <span class="res">' + res.range.toFixed(1) + ' m</span> · Impact speed = <span class="res">' + res.vImpact.toFixed(1) + ' m/s</span>');
+  } else if (S.mode === 'angled'){
+    setText('a-vx', Math.abs(pos.vx).toFixed(1));
+    setText('a-vy', Math.abs(pos.vy).toFixed(1));
+    setText('a-v',  vMag.toFixed(1));
+    setText('a-t',  curT.toFixed(2));
+    setText('a-range', res.range.toFixed(1));
+    setText('a-hmax',  res.maxHeight.toFixed(1));
+    setHTML('eqA', 'R = u²·sin(2θ)/g = <span class="num">' + S.params.angled.u.toFixed(1) + '</span>² · sin(2·' + S.params.angled.angle + '°)/' + S.params.angled.g + ' = <span class="res">' + res.range.toFixed(1) + ' m</span>');
+  } else {
+    setText('x-vx', Math.abs(pos.vx).toFixed(1));
+    setText('x-vy', Math.abs(pos.vy).toFixed(1));
+    setText('x-v',  vMag.toFixed(1));
+    setText('x-t',  curT.toFixed(2));
+    setText('x-range', res.range.toFixed(1));
+    setText('x-hmax',  res.maxHeight.toFixed(1));
+    setHTML('eqX', 't = <span class="num">' + res.t_flight.toFixed(2) + '</span> s · Range = <span class="res">' + res.range.toFixed(1) + ' m</span> · Peak = <span class="res">' + res.maxHeight.toFixed(1) + ' m</span>');
+  }
+
+  let hintText = 'Adjust the sliders, then press LAUNCH';
+  if (S.launched && curT > 0.01) hintText = 'In flight — watch vx stay constant while vy changes!';
+  else if (curT > 0.01) hintText = '✓ Landed at ' + res.range.toFixed(1) + ' m — press LAUNCH to replay';
+  setText('hint', hintText);
+
+  checkActiveChallenge();
+}
+
+function setText(id, text){
+  const el = $(id);
+  if (el) el.textContent = text;
+}
+function setHTML(id, html){
+  const el = $(id);
+  if (el) el.innerHTML = html;
+}
+
+/* =========================================================
+   8. ANIMATION LOOP
+   ========================================================= */
+let last = performance.now();
+
+function loop(now){
+  let dt = (now - last) / 1000;
+  last = now;
+  dt = Math.min(dt, 0.05);
+  if (S.slowmo) dt *= 0.3;
+
+  if (S.launched && !S.paused && S.result){
+    const timeScale = Math.max(1, S.result.t_flight / 4);
+    S.animT += dt * timeScale;
+    if (S.animT >= S.result.t_flight){
+      S.animT = S.result.t_flight;
+      S.launched = false;
+    }
+    updateParticles(dt);
+  }
+
+  try {
+    draw();
+    drawGraph();
+    updateUI();
+  } catch(e) {
+    console.warn('Render error:', e);
+  }
+  requestAnimationFrame(loop);
+}
+
+/* =========================================================
+   9. MODE SWITCH
+   ========================================================= */
+function switchMode(mode){
+  S.mode = mode;
+  document.querySelectorAll('.tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.mode === mode));
+  ['horizontal', 'angled', 'height'].forEach(m => {
+    const panel = $('panel-' + m);
+    const eq = $('eq-' + m);
+    if (panel) panel.classList.toggle('active', m === mode);
+    if (eq) eq.classList.toggle('active', m === mode);
+  });
+  recompute();
+  renderChallenges();
+  updateActiveChallengeBox();
+  if (S.paused){ S.paused = false; const b = $('pauseBtn'); if (b) { b.textContent = '⏸ Pause'; b.classList.remove('on'); } }
+  if (S.slowmo){ S.slowmo = false; const b = $('slowBtn'); if (b) b.classList.remove('on'); }
+  beep(440, 0.05);
+}
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => switchMode(t.dataset.mode));
+});
+
+/* =========================================================
+   10. CONTROLS
+   ========================================================= */
+function launch(){
+  S.animT = 0;
+  S.launched = true;
+  beep(700, 0.08);
+  setTimeout(() => beep(880, 0.06), 80);
+}
+
+['launchH', 'launchA', 'launchX'].forEach(id => {
+  const b = $(id);
+  if (b) b.addEventListener('click', launch);
+});
+
+// Horizontal sliders
+const bindSlider = (id, valId, path, unit, digits) => {
+  const slider = $(id);
+  if (!slider) return;
+  slider.addEventListener('input', e => {
+    const val = parseFloat(e.target.value);
+    const keys = path.split('.');
+    let obj = S.params[keys[0]];
+    for (let i = 1; i < keys.length - 1; i++) obj = obj[keys[i]];
+    obj[keys[keys.length - 1]] = val;
+    const lbl = $(valId);
+    if (lbl) lbl.textContent = val.toFixed(digits) + unit;
+    recompute();
+  });
+};
+bindSlider('uH',   'uHVal',   'horizontal.u',     ' m/s', 1);
+bindSlider('hH',   'hHVal',   'horizontal.h',     ' m',   1);
+bindSlider('gH',   'gHVal',   'horizontal.g',     ' m/s²',1);
+bindSlider('uA',   'uAVal',   'angled.u',         ' m/s', 1);
+bindSlider('angA', 'angAVal', 'angled.angle',     '°',    0);
+bindSlider('gA',   'gAVal',   'angled.g',         ' m/s²',1);
+bindSlider('uX',   'uXVal',   'height.u',         ' m/s', 1);
+bindSlider('angX', 'angXVal', 'height.angle',     '°',    0);
+bindSlider('hX',   'hXVal',   'height.h',         ' m',   1);
+bindSlider('gX',   'gXVal',   'height.g',         ' m/s²',1);
+
+// Presets
+const PRESETS = {
+  'h-tabletop': { mode: 'horizontal', u: 2, h: 1.5, g: 9.8 },
+  'h-cliff':    { mode: 'horizontal', u: 8, h: 30, g: 9.8 },
+  'h-moon':     { mode: 'horizontal', u: 5, h: 20, g: 1.6 },
+  'a-soccer':   { mode: 'angled', u: 25, angle: 25, g: 9.8 },
+  'a-cannon':   { mode: 'angled', u: 50, angle: 45, g: 9.8 },
+  'a-basket':   { mode: 'angled', u: 8, angle: 55, g: 9.8 },
+  'x-fireworks':{ mode: 'height', u: 60, angle: 75, h: 3, g: 9.8 },
+  'x-archery':  { mode: 'height', u: 40, angle: 15, h: 30, g: 9.8 },
+  'x-rocket':   { mode: 'height', u: 70, angle: 80, h: 5, g: 9.8 }
+};
+document.querySelectorAll('.preset[data-preset]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = PRESETS[btn.dataset.preset];
+    if (!p) return;
+    if (p.mode !== S.mode) switchMode(p.mode);
+    if (p.mode === 'horizontal'){
+      S.params.horizontal.u = p.u;
+      S.params.horizontal.h = p.h;
+      S.params.horizontal.g = p.g;
+      setSlider('uH', p.u);  setText('uHVal', p.u.toFixed(1) + ' m/s');
+      setSlider('hH', p.h);  setText('hHVal', p.h.toFixed(1) + ' m');
+      setSlider('gH', p.g);  setText('gHVal', p.g.toFixed(1) + ' m/s²');
+    } else if (p.mode === 'angled'){
+      S.params.angled.u = p.u;
+      S.params.angled.angle = p.angle;
+      S.params.angled.g = p.g;
+      setSlider('uA', p.u);      setText('uAVal', p.u.toFixed(1) + ' m/s');
+      setSlider('angA', p.angle); setText('angAVal', p.angle + '°');
+      setSlider('gA', p.g);      setText('gAVal', p.g.toFixed(1) + ' m/s²');
+    } else {
+      S.params.height.u = p.u;
+      S.params.height.angle = p.angle;
+      S.params.height.h = p.h;
+      S.params.height.g = p.g;
+      setSlider('uX', p.u);      setText('uXVal', p.u.toFixed(1) + ' m/s');
+      setSlider('angX', p.angle); setText('angXVal', p.angle + '°');
+      setSlider('hX', p.h);      setText('hXVal', p.h.toFixed(1) + ' m');
+      setSlider('gX', p.g);      setText('gXVal', p.g.toFixed(1) + ' m/s²');
+    }
+    recompute();
+    beep(600, 0.05);
+  });
+});
+function setSlider(id, val){ const el = $(id); if (el) el.value = val; }
+
+// Toolbar
+const pb = $('pauseBtn');
+if (pb) pb.addEventListener('click', () => {
+  S.paused = !S.paused;
+  pb.textContent = S.paused ? '▶ Resume' : '⏸ Pause';
+  pb.classList.toggle('on', S.paused);
+});
+const sb = $('slowBtn');
+if (sb) sb.addEventListener('click', () => {
+  S.slowmo = !S.slowmo;
+  sb.classList.toggle('on', S.slowmo);
+});
+const rb = $('resetBtn');
+if (rb) rb.addEventListener('click', recompute);
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space'){ e.preventDefault(); launch(); }
+  if (e.code === 'KeyR'){ recompute(); }
+});
+
+// Help
+const hb = $('helpBtn');
+const hp = $('helpPanel');
+if (hb && hp) hb.addEventListener('click', () => hp.classList.toggle('open'));
+
+/* =========================================================
+   11. TOAST
+   ========================================================= */
+function showToast(msg, type){
+  const t = $('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = 'toast ' + (type || '');
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* =========================================================
+   12. CHALLENGES
+   ========================================================= */
+const CHALLENGES = {
+  horizontal: [
+    { id: 'h-range', title: 'Reach 50 m range', desc: 'Choose u and h so the projectile lands at least 50 m away.',
+      check: () => S.mode === 'horizontal' && S.result && S.result.range >= 50,
+      progress: () => S.result ? Math.min(1, S.result.range / 50) : 0 },
+    { id: 'h-time', title: 'Fall for ~2 seconds', desc: 'Adjust h so the fall time is between 1.8 and 2.2 s.',
+      check: () => S.mode === 'horizontal' && S.result && S.result.t_flight >= 1.8 && S.result.t_flight <= 2.2,
+      progress: () => S.result ? Math.max(0, 1 - Math.abs(S.result.t_flight - 2) / 1) : 0 },
+    { id: 'h-impact', title: 'Impact at 20 m/s', desc: 'Set h so the vertical impact speed is at least 20 m/s.',
+      check: () => S.mode === 'horizontal' && S.result && S.result.vImpact >= 20,
+      progress: () => S.result ? Math.min(1, S.result.vImpact / 20) : 0 }
+  ],
+  angled: [
+    { id: 'a-max', title: 'Max range (θ ≈ 45°)', desc: 'Set the angle near 45° — that is where range is largest.',
+      check: () => S.mode === 'angled' && Math.abs(S.params.angled.angle - 45) <= 2,
+      progress: () => Math.max(0, 1 - Math.abs(S.params.angled.angle - 45) / 20) },
+    { id: 'a-100', title: 'Reach 100 m', desc: 'Choose u, θ and g so the projectile lands at least 100 m away.',
+      check: () => S.mode === 'angled' && S.result && S.result.range >= 100,
+      progress: () => S.result ? Math.min(1, S.result.range / 100) : 0 },
+    { id: 'a-height', title: 'Peak at 20 m', desc: 'Choose u and θ so the maximum height is at least 20 m.',
+      check: () => S.mode === 'angled' && S.result && S.result.maxHeight >= 20,
+      progress: () => S.result ? Math.min(1, S.result.maxHeight / 20) : 0 }
+  ],
+  height: [
+    { id: 'x-range', title: 'Land 60 m away', desc: 'Launch from the platform so the projectile lands at least 60 m from the base.',
+      check: () => S.mode === 'height' && S.result && S.result.range >= 60,
+      progress: () => S.result ? Math.min(1, S.result.range / 60) : 0 },
+    { id: 'x-flight', title: 'Stay airborne 3 s', desc: 'Choose values so the projectile is in the air for at least 3 seconds.',
+      check: () => S.mode === 'height' && S.result && S.result.t_flight >= 3,
+      progress: () => S.result ? Math.min(1, S.result.t_flight / 3) : 0 },
+    { id: 'x-peak', title: 'Peak 30 m', desc: 'Aim high enough that the peak height is at least 30 m above the ground.',
+      check: () => S.mode === 'height' && S.result && S.result.maxHeight >= 30,
+      progress: () => S.result ? Math.min(1, S.result.maxHeight / 30) : 0 }
+  ]
+};
+
+function renderChallenges(){
+  const grid = $('chalGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  (CHALLENGES[S.mode] || []).forEach(c => {
+    const card = document.createElement('div');
+    const tracked = S.activeChallenge[S.mode] && S.activeChallenge[S.mode].id === c.id;
+    card.className = 'chal' + (S.passedChallenges.has(c.id) ? ' passed' : '') + (tracked ? ' tracking' : '');
+    card.innerHTML = `
+      <h4>${c.title}</h4>
+      <p>${c.desc}</p>
+      <span class="chal-tag">${S.passedChallenges.has(c.id) ? '✓ Passed' : tracked ? 'Tracking' : 'Track this'}</span>
+    `;
+    card.addEventListener('click', () => {
+      S.activeChallenge[S.mode] = c;
+      S.passedChallenges.delete(c.id);
+      renderChallenges();
+      updateActiveChallengeBox();
+      beep(500, 0.06);
+    });
+    grid.appendChild(card);
+  });
+}
+
+function updateActiveChallengeBox(){
+  const c = S.activeChallenge[S.mode];
+  const p = S.mode === 'horizontal' ? 'h' : S.mode === 'angled' ? 'a' : 'x';
+  const desc = $('ac-' + p + '-desc');
+  const fill = $('ac-' + p + '-fill');
+  const status = $('ac-' + p + '-status');
+  const box = $('ac-' + p);
+
+  if (!c){
+    if (desc) desc.textContent = 'Tap a challenge below to start tracking it.';
+    if (fill) fill.style.width = '0%';
+    if (status) { status.textContent = 'Not tracking'; status.className = 'ac-status'; }
+    if (box) box.classList.remove('passed');
+    return;
+  }
+  if (desc) desc.textContent = c.desc;
+  if (fill) fill.style.width = ((c.progress ? c.progress() : 0) * 100) + '%';
+  if (S.passedChallenges.has(c.id)){
+    if (status) { status.textContent = '✓ Passed!'; status.className = 'ac-status pass'; }
+    if (box) box.classList.add('passed');
+  } else {
+    if (status) { status.textContent = 'In progress...'; status.className = 'ac-status'; }
+    if (box) box.classList.remove('passed');
+  }
+}
+
+function checkActiveChallenge(){
+  const c = S.activeChallenge[S.mode];
+  if (!c || S.passedChallenges.has(c.id)) return;
+  const p = S.mode === 'horizontal' ? 'h' : S.mode === 'angled' ? 'a' : 'x';
+  const fill = $('ac-' + p + '-fill');
+  const prog = c.progress ? c.progress() : 0;
+  if (fill) fill.style.width = (prog * 100) + '%';
+  try {
+    if (c.check()){
+      S.passedChallenges.add(c.id);
+      successSound();
+      showToast('✓ Challenge passed: ' + c.title, 'success');
+      updateActiveChallengeBox();
+      renderChallenges();
+    }
+  } catch(e){}
+}
+
+/* =========================================================
+   13. MODAL
+   ========================================================= */
+const modal = $('exampleModal');
+function openModal(ex, valuesHTML, photoUrl){
+  setText('mSub', ex.sub);
+  setText('mTitle', ex.name);
+  setText('mIntro', ex.intro);
+  setHTML('mValues', valuesHTML);
+  setHTML('mObserve', ex.observe.map(o => '<li>' + o + '</li>').join(''));
+  setHTML('mTip', '<b>Tip:</b> ' + ex.tip);
+
+  const hero = $('mHero');
+  const heroImg = $('mHeroImg');
+  const heroFallback = $('mHeroFallback');
+  if (heroFallback) heroFallback.textContent = ex.icon;
+  if (hero) hero.classList.remove('loaded');
+
+  if (photoUrl && heroImg){
+    heroImg.onload = () => hero && hero.classList.add('loaded');
+    heroImg.onerror = () => hero && hero.classList.remove('loaded');
+    heroImg.src = photoUrl;
+  } else if (heroImg){
+    heroImg.removeAttribute('src');
+  }
+
+  if (modal){
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+}
+function closeModal(){
+  if (modal){
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  document.body.style.overflow = '';
+  if (window.innerWidth < 940){
+    const s = document.querySelector('.stage-layout');
+    if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+if (modal) modal.addEventListener('click', e => { if (e.target.closest('[data-close]')) closeModal(); });
+document.addEventListener('keydown', e => {
+  if (e.code === 'Escape' && modal && modal.classList.contains('open')) closeModal();
+});
+
+/* =========================================================
+   14. EXAMPLES DATA
+   ========================================================= */
+const exPhotos = {
+  cliff:      'https://images.unsplash.com/photo-1533130061792-64b345e4a833?auto=format&fit=crop&w=600&q=80',
+  ski:        'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?auto=format&fit=crop&w=600&q=80',
+  fountain:   'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=600&q=80',
+  basketball: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=600&q=80',
+  soccer:     'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=600&q=80',
+  golf:       'https://images.unsplash.com/photo-1535131749006-b7f58c99034b?auto=format&fit=crop&w=600&q=80',
+  fireworks:  'https://images.unsplash.com/photo-1498931299472-f7a63a5a1cfa?auto=format&fit=crop&w=600&q=80',
+  archery:    'https://images.unsplash.com/photo-1510925758641-869d353cecc7?auto=format&fit=crop&w=600&q=80',
+  rocket:     'https://images.unsplash.com/photo-1517976487492-5750f3195933?auto=format&fit=crop&w=600&q=80'
+};
+
+const EXAMPLES = {
+  cliff: {
+    mode: 'horizontal', name: 'Cliff jump', icon: '🏔', sub: 'Horizontal throw',
+    intro: 'A diver runs off a cliff at a horizontal speed of 5 m/s. Gravity pulls them down in a curve while the horizontal velocity stays constant.',
+    values: { u: 5, h: 30, g: 9.8 },
+    observe: [
+      'Horizontal velocity stays at 5 m/s the whole time — gravity only affects the vertical part.',
+      'Vertical velocity starts at 0 and grows downward at 9.8 m/s each second.',
+      'Fall time depends only on height h — the horizontal speed does not change how long the fall takes.'
+    ],
+    tip: 'A diver and a dropped ball released at the same time hit the water together, no matter how fast the diver runs horizontally.'
+  },
+  ski: {
+    mode: 'horizontal', name: 'Ski jump take-off', icon: '⛷', sub: 'Horizontal throw',
+    intro: 'A ski jumper leaves the ramp roughly horizontally, then follows a parabolic arc down to the landing slope.',
+    values: { u: 15, h: 6, g: 9.8 },
+    observe: [
+      'Horizontal speed stays around 15 m/s throughout the flight.',
+      'The jumper accelerates downward — vertical speed grows steadily.',
+      'Landing point is determined by the horizontal speed and the height of the ramp.'
+    ],
+    tip: 'Real ski jumpers use air resistance and aerodynamic lift, but the basic curve is still parabolic.'
+  },
+  fountain: {
+    mode: 'horizontal', name: 'Water spout from a wall', icon: '⛲', sub: 'Horizontal throw',
+    intro: 'Water emerges horizontally from a hole in a wall or tank. Each droplet follows the same parabolic path.',
+    values: { u: 8, h: 2, g: 9.8 },
+    observe: [
+      'The stream traces a curve, not a straight line — that curve IS the trajectory.',
+      'Horizontal speed is set by how hard the water is pushed (u).',
+      'The shape of the curve depends on both u and h.'
+    ],
+    tip: 'The same physics shapes garden hose arcs, fountain jets, and waterfalls from dams.'
+  },
+  basketball: {
+    mode: 'angled', name: 'Basketball shot', icon: '🏀', sub: 'Angled launch',
+    intro: 'A basketball leaves the player\'s hands at a steep angle. The arc peaks and comes back down — hopefully through the hoop.',
+    values: { u: 8, angle: 55, g: 9.8 },
+    observe: [
+      'A steep angle (55°) gives a high, short-range arc — good for shooting over a defender.',
+      'Horizontal velocity is smaller than vertical — the ball spends more time going up and down.',
+      'Peak height occurs when vertical velocity becomes zero.'
+    ],
+    tip: 'Expert shooters fine-tune both the launch speed and angle — a 45° angle maximises range, but a steeper angle is easier to aim precisely.'
+  },
+  soccer: {
+    mode: 'angled', name: 'Soccer free kick', icon: '⚽', sub: 'Angled launch',
+    intro: 'A player kicks the ball at 25 m/s and 25°. The ball arcs up and lands far down the pitch.',
+    values: { u: 25, angle: 25, g: 9.8 },
+    observe: [
+      'A low angle (25°) gives a flatter arc and a longer range than a high shot at the same speed.',
+      'The ball is faster horizontally than vertically — that gives it distance.',
+      'Doubling the launch speed would quadruple the range.'
+    ],
+    tip: 'Real free kicks also use spin (the Magnus effect) which curves the ball sideways — this simulation only covers 2D projectile motion without spin.'
+  },
+  golf: {
+    mode: 'angled', name: 'Golf drive', icon: '⛳', sub: 'Angled launch',
+    intro: 'A golf club drives the ball at 45 m/s and a shallow 18° angle — the classic low, long drive.',
+    values: { u: 45, angle: 18, g: 9.8 },
+    observe: [
+      'Low launch angle + high speed gives a long, flat arc.',
+      'A 45° angle would give a similar range but a much higher peak.',
+      'For the same speed, angles of 18° and 72° give exactly the same range.'
+    ],
+    tip: 'Real golfers optimise for carry + roll. Higher launch angles help carry the ball over obstacles but reduce total distance.'
+  },
+  fireworks: {
+    mode: 'height', name: 'Fireworks shell', icon: '🎆', sub: 'Launch from height',
+    intro: 'A firework shell is launched steeply upward (75°) from a small platform, reaching a great height before exploding.',
+    values: { u: 60, angle: 75, h: 3, g: 9.8 },
+    observe: [
+      'Very steep angle (75°) sends the shell high and to a moderate horizontal distance.',
+      'The peak height is where vertical velocity hits zero — the "explosion height".',
+      'A smaller angle (say 45°) would land the shell much further but lower.'
+    ],
+    tip: 'Real fireworks are timed so the shell explodes at its peak — right when vertical velocity is zero, no matter how fast it was launched.'
+  },
+  archery: {
+    mode: 'height', name: 'Archery from a tower', icon: '🏹', sub: 'Launch from height',
+    intro: 'An archer on a tower fires an arrow at 40 m/s and 15° from a height of 30 m.',
+    values: { u: 40, angle: 15, h: 30, g: 9.8 },
+    observe: [
+      'The launch height (30 m) adds significant flight time — the arrow stays airborne longer than a ground shot.',
+      'A low angle keeps the arrow flying relatively flat while gaining distance from the height.',
+      'Range is much greater than if shot from the ground at the same u and angle.'
+    ],
+    tip: 'Real archers use specialised arrow stabilisers and have to account for wind — the physics here shows only the ideal case.'
+  },
+  rocket: {
+    mode: 'height', name: 'Rocket launch', icon: '🚀', sub: 'Launch from height',
+    intro: 'A rocket clears its launch pad and flies at a steep 80° angle, reaching enormous height before falling back.',
+    values: { u: 70, angle: 80, h: 5, g: 9.8 },
+    observe: [
+      'Very high launch angle → steep, tall arc.',
+      'Flight time is long because vertical velocity is so large.',
+      'Horizontal distance is modest compared to the peak height.'
+    ],
+    tip: 'Real rockets keep accelerating during flight (thrust), so they are not perfect projectiles. But the initial arc still follows these physics.'
+  }
+};
+
+function applyExample(key){
+  const ex = EXAMPLES[key];
+  if (!ex) return;
+  if (ex.mode !== S.mode) switchMode(ex.mode);
+
+  if (ex.mode === 'horizontal'){
+    S.params.horizontal.u = ex.values.u;
+    S.params.horizontal.h = ex.values.h;
+    S.params.horizontal.g = ex.values.g;
+    setSlider('uH', ex.values.u); setText('uHVal', ex.values.u.toFixed(1) + ' m/s');
+    setSlider('hH', ex.values.h); setText('hHVal', ex.values.h.toFixed(1) + ' m');
+    setSlider('gH', ex.values.g); setText('gHVal', ex.values.g.toFixed(1) + ' m/s²');
+  } else if (ex.mode === 'angled'){
+    S.params.angled.u = ex.values.u;
+    S.params.angled.angle = ex.values.angle;
+    S.params.angled.g = ex.values.g;
+    setSlider('uA', ex.values.u); setText('uAVal', ex.values.u.toFixed(1) + ' m/s');
+    setSlider('angA', ex.values.angle); setText('angAVal', ex.values.angle + '°');
+    setSlider('gA', ex.values.g); setText('gAVal', ex.values.g.toFixed(1) + ' m/s²');
+  } else {
+    S.params.height.u = ex.values.u;
+    S.params.height.angle = ex.values.angle;
+    S.params.height.h = ex.values.h;
+    S.params.height.g = ex.values.g;
+    setSlider('uX', ex.values.u); setText('uXVal', ex.values.u.toFixed(1) + ' m/s');
+    setSlider('angX', ex.values.angle); setText('angXVal', ex.values.angle + '°');
+    setSlider('hX', ex.values.h); setText('hXVal', ex.values.h.toFixed(1) + ' m');
+    setSlider('gX', ex.values.g); setText('gXVal', ex.values.g.toFixed(1) + ' m/s²');
+  }
+  recompute();
+
+  const wrap = $('canvasWrap');
+  if (wrap){
+    wrap.classList.remove('flash');
+    void wrap.offsetWidth;
+    wrap.classList.add('flash');
+  }
+
+  const btn = document.querySelector('button[data-example="' + key + '"]');
+  if (btn){
+    btn.classList.add('just-loaded');
+    setTimeout(() => btn.classList.remove('just-loaded'), 1200);
+  }
+
+  showToast('Loaded: ' + ex.name);
+  beep(600, 0.08);
+
+  const vals = ex.values;
+  let valuesHTML = '';
+  valuesHTML += '<div><span>Launch speed</span><b>' + vals.u.toFixed(1) + ' m/s</b></div>';
+  if (vals.angle !== undefined) valuesHTML += '<div><span>Angle</span><b>' + vals.angle + '°</b></div>';
+  if (vals.h !== undefined) valuesHTML += '<div><span>Height</span><b>' + vals.h.toFixed(1) + ' m</b></div>';
+  valuesHTML += '<div><span>Gravity</span><b>' + vals.g.toFixed(1) + ' m/s²</b></div>';
+  valuesHTML += '<div><span>Range</span><b>' + S.result.range.toFixed(1) + ' m</b></div>';
+  valuesHTML += '<div><span>Max height</span><b>' + S.result.maxHeight.toFixed(1) + ' m</b></div>';
+
+  openModal(ex, valuesHTML, exPhotos[key]);
+}
+
+/* Render example cards */
+(function renderExamples(){
+  const grid = $('appGrid');
+  if (!grid) return;
+  const modeLabels = { horizontal: 'Horizontal', angled: 'Angled', height: 'From height' };
+
+  Object.entries(EXAMPLES).forEach(([key, ex]) => {
+    const div = document.createElement('div');
+    div.className = 'app';
+    div.innerHTML = `
+      <div class="app-visual">
+        <div class="app-fallback">${ex.icon}</div>
+        <img src="${exPhotos[key]}" alt="${ex.name}" loading="lazy" onload="this.parentElement.classList.add('loaded')">
+        <div class="app-overlay">
+          <span class="app-badge mode-${ex.mode}">${modeLabels[ex.mode]}</span>
+          <h3>${ex.name}</h3>
+        </div>
+      </div>
+      <div class="app-body">
+        <p>${ex.intro}</p>
+        <button data-example="${key}">Load example</button>
+      </div>
+    `;
+    div.querySelector('button').addEventListener('click', (e) => {
+      e.stopPropagation();
+      applyExample(key);
+    });
+    div.addEventListener('click', () => applyExample(key));
+    grid.appendChild(div);
+  });
+})();
+
+/* =========================================================
+   15. INIT
+   ========================================================= */
+try {
+  switchMode('horizontal');
+} catch(e) {
+  console.error('Init error (switchMode):', e);
+  // Fallback: still set up state so the loop can run
+  S.mode = 'horizontal';
+  recompute();
+  renderChallenges();
+  updateActiveChallengeBox();
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
